@@ -3,8 +3,9 @@ import { ref } from 'vue'
 import LoginPage from './components/LoginPage.vue'
 import SignupPage from './components/SignupPage.vue'
 import HomePage from './components/HomePage.vue'
+import LearningCenter from './components/LearningCenter.vue'
 
-// View state: 'landing' | 'login' | 'signup' | 'home'
+// View state: 'landing' | 'login' | 'signup' | 'home' | 'learning'
 const currentView = ref('landing')
 
 // User session state (placeholder — no database)
@@ -31,11 +32,7 @@ const handleLogout = () => {
 }
 
 const handleGoLearning = () => {
-  alert('Learning Center coming soon!')
-}
-
-const handleGoCodeChecker = () => {
-  alert('AI Code Checker coming soon!')
+  currentView.value = 'learning'
 }
 </script>
 
@@ -99,7 +96,14 @@ const handleGoCodeChecker = () => {
         :last-quiz-score="lastQuizScore"
         :on-logout="handleLogout"
         :on-go-learning="handleGoLearning"
-        :on-go-code-checker="handleGoCodeChecker"
+      />
+    </template>
+
+    <!-- ─── Learning Center ─── -->
+    <template v-else-if="currentView === 'learning'">
+      <LearningCenter
+        :username="username"
+        :on-go-back="() => goTo('home')"
       />
     </template>
   </div>

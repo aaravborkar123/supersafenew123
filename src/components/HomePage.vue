@@ -10,8 +10,7 @@ const props = defineProps({
     default: 0
   },
   onLogout: Function,
-  onGoLearning: Function,
-  onGoCodeChecker: Function
+  onGoLearning: Function
 })
 </script>
 
@@ -64,21 +63,13 @@ const props = defineProps({
     </div>
 
     <!-- Feature Buttons -->
-    <div class="features-section">
-      <button @click="onGoLearning" class="feature-btn feature-btn--green">
+    <div class="features-section" style="grid-template-columns: 1fr;">
+      <button @click="onGoLearning" class="feature-btn feature-btn--green" style="border-right: none; width: 100%;">
         <div class="feature-icon">
           <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path></svg>
         </div>
         <div class="feature-label">Learning Center</div>
         <div class="feature-sublabel">Quizzes &amp; Lessons</div>
-      </button>
-
-      <button @click="onGoCodeChecker" class="feature-btn feature-btn--cyan">
-        <div class="feature-icon">
-          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"></polyline><polyline points="8 6 2 12 8 18"></polyline><line x1="12" y1="2" x2="12" y2="22" opacity="0.5"></line></svg>
-        </div>
-        <div class="feature-label">AI Code Checker</div>
-        <div class="feature-sublabel">Test your code for vulnerabilities</div>
       </button>
     </div>
   </div>
