@@ -1,44 +1,29 @@
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref } from 'vue'
 import { LESSONS } from '../data/lessons'
 
-const props = defineProps({
+defineProps({
   username: String,
   onGoBack: Function
 })
 
-const apiKey = ref('')
+// API key is read from the .env file (VITE_GEMINI_API_KEY).
+// It is never exposed in the UI and never committed to GitHub.
+const API_KEY = import.meta.env.VITE_GEMINI_API_KEY
+
 const selectedLesson = ref(null)
 const lessonContent = ref('')
 const isLoading = ref(false)
 const errorMessage = ref('')
 const loadingText = ref('Connecting to Gemini...')
 
-onMounted(() => {
-  // Load saved API Key from localStorage
-  const savedKey = localStorage.getItem('gemini_api_key')
-  if (savedKey) {
-    apiKey.value = savedKey
-  }
-})
-
-const saveApiKey = () => {
-  localStorage.setItem('gemini_api_key', apiKey.value)
-  alert('API Key saved successfully!')
-}
-
-const clearApiKey = () => {
-  apiKey.value = ''
-  localStorage.removeItem('gemini_api_key')
-}
-
 const selectLesson = async (lesson) => {
   selectedLesson.value = lesson
   errorMessage.value = ''
   lessonContent.value = ''
 
-  if (!apiKey.value) {
-    errorMessage.value = 'Please configure your Gemini API Key in the settings at the top to load lessons.'
+  if (!API_KEY) {
+    errorMessage.value = 'Service unavailable: API key not configured. Please contact the site administrator.'
     return
   }
 
@@ -50,7 +35,7 @@ const selectLesson = async (lesson) => {
     'Generating secure code patterns...',
     'Formatting lesson modules...'
   ]
-  
+
   let phraseIdx = 0
   loadingText.value = loadingPhrases[phraseIdx]
   const interval = setInterval(() => {
@@ -60,9 +45,9 @@ const selectLesson = async (lesson) => {
 
   try {
     const prompt = `You are a professional Cyber Security Educator. Generate a detailed secure coding lesson about: "${lesson.name}".
-    
+
     Format the entire output as clean HTML structure inside a <div>. Do NOT wrap it in markdown code blocks (\`\`\`html). Use appropriate heading, paragraph, list, and code tags.
-    
+
     The lesson MUST contain the following sections with styled tags:
     1. Lesson Overview (Use <h3>)
     2. Why the Topic is Important (Use <h3>)
@@ -71,26 +56,16 @@ const selectLesson = async (lesson) => {
     5. Good Practice Example (Use <h3>, followed by a code block <pre><code> displaying the secure/mitigated code)
     6. Best Practices (Use <h3>, followed by a <ul> list)
     7. Summary (Use <h3>)
-    
+
     Ensure all code blocks are cleanly formatted. Keep the style modern and clear.`
 
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey.value}`
-    
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${API_KEY}`
+
     const response = await fetch(url, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        contents: [
-          {
-            parts: [
-              {
-                text: prompt
-              }
-            ]
-          }
-        ]
+        contents: [{ parts: [{ text: prompt }] }]
       })
     })
 
@@ -101,8 +76,8 @@ const selectLesson = async (lesson) => {
 
     const data = await response.json()
     let generatedText = data.candidates?.[0]?.content?.parts?.[0]?.text || ''
-    
-    // Clean up any markdown code block wrapper if Gemini returned it despite instructions
+
+    // Strip any markdown code block wrapper Gemini may add despite instructions
     generatedText = generatedText.replace(/^```html\s*/i, '').replace(/```\s*$/, '').trim()
 
     lessonContent.value = generatedText
@@ -127,23 +102,7 @@ const selectLesson = async (lesson) => {
       <span class="learning-title">Learning Center</span>
     </div>
 
-    <!-- API Settings Bar -->
-    <div class="api-settings-card">
-      <div class="api-settings-header">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--secondary-glow);"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
-        <span>Gemini API Configuration</span>
-      </div>
-      <div class="api-input-group">
-        <input 
-          v-model="apiKey" 
-          type="password" 
-          placeholder="Enter your Gemini API Key..." 
-          class="api-input"
-        />
-        <button v-if="!apiKey" @click="saveApiKey" class="btn-api save">Save Key</button>
-        <button v-else @click="clearApiKey" class="btn-api clear">Clear Key</button>
-      </div>
-    </div>
+    <!-- No API settings bar: key is loaded securely from server env -->
 
     <!-- Layout Grid -->
     <div class="learning-layout">
@@ -236,76 +195,6 @@ const selectLesson = async (lesson) => {
   color: var(--text-heading);
 }
 
-/* API configuration bar */
-.api-settings-card {
-  background: hsla(224, 71%, 6%, 0.7);
-  border: 1px solid var(--card-border);
-  border-radius: 12px;
-  padding: 0.75rem 1.25rem;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 0.75rem;
-}
-
-.api-settings-header {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  font-size: 0.9rem;
-  font-weight: 600;
-  color: var(--text-heading);
-}
-
-.api-input-group {
-  display: flex;
-  gap: 0.5rem;
-  flex-grow: 1;
-  max-width: 450px;
-}
-
-.api-input {
-  background: hsla(224, 71%, 3%, 0.6);
-  border: 1px solid var(--card-border);
-  border-radius: 6px;
-  padding: 0.4rem 0.75rem;
-  color: var(--text-heading);
-  font-family: var(--font-sans);
-  font-size: 0.85rem;
-  flex-grow: 1;
-}
-
-.api-input:focus {
-  outline: none;
-  border-color: var(--secondary-glow);
-}
-
-.btn-api {
-  border: none;
-  border-radius: 6px;
-  padding: 0.4rem 1rem;
-  font-family: var(--font-sans);
-  font-weight: 600;
-  font-size: 0.85rem;
-  cursor: pointer;
-  transition: opacity 0.2s;
-}
-
-.btn-api:hover {
-  opacity: 0.9;
-}
-
-.btn-api.save {
-  background: var(--secondary-glow);
-  color: hsl(224, 71%, 4%);
-}
-
-.btn-api.clear {
-  background: hsla(0, 80%, 50%, 0.2);
-  color: hsl(0, 80%, 75%);
-  border: 1px solid hsla(0, 80%, 50%, 0.4);
-}
 
 /* Layout Grid */
 .learning-layout {
