@@ -1,5 +1,5 @@
 <script setup>
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 import LoginPage from './components/LoginPage.vue'
 import SignupPage from './components/SignupPage.vue'
 import HomePage from './components/HomePage.vue'
@@ -7,7 +7,10 @@ import LearningCenter from './components/LearningCenter.vue'
 import QuizView from './components/QuizView.vue'
 import { LESSONS } from './data/lessons'
 
-import { getUser, completeLesson } from './data/db'
+import { getUser, completeLesson, ensureAdminAccounts } from './data/db'
+
+// Ensure the admin account exists in localStorage on every app load
+onMounted(() => ensureAdminAccounts())
 
 // View state: 'landing' | 'login' | 'signup' | 'home' | 'learning' | 'quiz'
 const currentView = ref('landing')

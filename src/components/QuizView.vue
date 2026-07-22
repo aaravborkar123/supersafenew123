@@ -1,7 +1,7 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { LESSONS } from '../data/lessons'
-import { recordQuizAttempt } from '../data/db'
+import { recordQuizAttempt, isAdmin } from '../data/db'
 
 const props = defineProps({
   username: String,
@@ -29,7 +29,8 @@ const nextLesson = computed(() => {
   const idx = LESSONS.findIndex(l => l.id === currentLesson.value?.id)
   return idx >= 0 && idx < LESSONS.length - 1 ? LESSONS[idx + 1] : null
 })
-const lessonPassed = computed(() => score.value >= 7)
+// Admins always pass (bypass 7/10 requirement)
+const lessonPassed = computed(() => isAdmin(props.username) || score.value >= 7)
 const isLastLesson = computed(() => !nextLesson.value)
 
 // ─── Quiz Generation ──────────────────────────────────────────────────────────
@@ -317,15 +318,11 @@ const allAnswered = computed(() =>
         </div>
       </div>
 
-      <!-- 4-Action Footer -->
+      <!-- 3-Action Footer -->
       <div class="action-footer">
         <button class="btn-action secondary" @click="onGoBack">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
           Return to Lesson
-        </button>
-        <button class="btn-action secondary" @click="phase = 'review'">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-          Review Quiz
         </button>
         <button class="btn-action secondary" @click="onRetake">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3"/></svg>

@@ -2,6 +2,40 @@
 
 const USERS_KEY = 'supersafe_users_db'
 
+// ─── Admin Configuration ─────────────────────────────────────────────────────
+// Admin accounts bypass the 7/10 quiz requirement and have all lessons unlocked.
+// Credentials are checked case-insensitively for the username.
+const ADMIN_ACCOUNTS = [
+  { username: 'AaravB50', password: 'Pocing1256?' }
+]
+
+export function isAdmin(username) {
+  return ADMIN_ACCOUNTS.some(a => a.username.toLowerCase() === username.toLowerCase())
+}
+
+// Seed admin accounts into localStorage so they can log in normally.
+export function ensureAdminAccounts() {
+  const users = getAllUsers()
+  let changed = false
+  for (const admin of ADMIN_ACCOUNTS) {
+    const key = admin.username.toLowerCase()
+    if (!users[key]) {
+      users[key] = {
+        username: admin.username,
+        password: admin.password,
+        isAdmin: true,
+        lessonsCompleted: [],
+        lessonsPassed: [],   // unlocking is handled by isAdmin check, not this array
+        quizHistory: {},
+        lastQuizScore: null
+      }
+      changed = true
+    }
+  }
+  if (changed) saveAllUsers(users)
+}
+
+// ─── Internal helpers ────────────────────────────────────────────────────────
 function getAllUsers() {
   const data = localStorage.getItem(USERS_KEY)
   return data ? JSON.parse(data) : {}
@@ -11,6 +45,7 @@ function saveAllUsers(users) {
   localStorage.setItem(USERS_KEY, JSON.stringify(users))
 }
 
+// ─── Public API ──────────────────────────────────────────────────────────────
 export function getUser(username) {
   const users = getAllUsers()
   return users[username.toLowerCase()] || null
@@ -27,6 +62,7 @@ export function createUser(username, password) {
   const newUser = {
     username: username, // Preserve original casing for display
     password: password,
+    isAdmin: false,
     lessonsCompleted: [],   // lessonIds where the lesson content was viewed
     lessonsPassed: [],      // lessonIds where quiz score >= 7/10
     quizHistory: {},        // { [lessonId]: { bestScore, attempts: [{ score, date }] } }
@@ -43,9 +79,9 @@ export function authenticate(username, password) {
   if (!user || user.password !== password) {
     throw new Error('Invalid username or password.')
   }
-  // Migrate legacy users that don't have lessonsPassed / quizHistory yet
+  // Migrate legacy users that don't have newer fields yet
   if (!user.lessonsPassed) user.lessonsPassed = []
-  if (!user.quizHistory) user.quizHistory = {}
+  if (!user.quizHistory)   user.quizHistory = {}
   return user
 }
 
@@ -71,7 +107,6 @@ export function recordQuizAttempt(username, lessonId, score) {
 
   if (!user) return null
 
-  // Initialise quiz history for this lesson if not present
   if (!user.quizHistory) user.quizHistory = {}
   if (!user.lessonsPassed) user.lessonsPassed = []
 
@@ -83,11 +118,11 @@ export function recordQuizAttempt(username, lessonId, score) {
   history.attempts.push({ score, date: new Date().toISOString() })
   if (score > history.bestScore) history.bestScore = score
 
-  // Update lastQuizScore
   user.lastQuizScore = score
 
-  // Mark lesson as passed if score >= 7
-  if (score >= 7 && !user.lessonsPassed.includes(lessonId)) {
+  // Admins always pass; regular users need >= 7
+  const passes = user.isAdmin || score >= 7
+  if (passes && !user.lessonsPassed.includes(lessonId)) {
     user.lessonsPassed.push(lessonId)
   }
 
@@ -97,13 +132,16 @@ export function recordQuizAttempt(username, lessonId, score) {
 }
 
 export function isLessonUnlocked(username, lessonId, allLessons) {
-  // The first lesson is always unlocked
+  // Admins always have all lessons unlocked
+  if (isAdmin(username)) return true
+
+  // The first lesson is always unlocked for everyone
   if (lessonId === allLessons[0].id) return true
 
   const user = getUser(username)
   if (!user || !user.lessonsPassed) return false
 
-  // A lesson is unlocked if the previous lesson has been passed
+  // A lesson is unlocked only if the previous lesson has been passed (>= 7/10)
   const idx = allLessons.findIndex(l => l.id === lessonId)
   if (idx <= 0) return true
   const prevLesson = allLessons[idx - 1]
