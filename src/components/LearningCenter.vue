@@ -22,6 +22,13 @@ const selectLesson = async (lesson) => {
   errorMessage.value = ''
   lessonContent.value = ''
 
+  const cacheKey = `secure_coder_lesson_${lesson.id}`
+  const cachedContent = localStorage.getItem(cacheKey)
+  if (cachedContent) {
+    lessonContent.value = cachedContent
+    return
+  }
+
   if (!API_KEY) {
     errorMessage.value = 'Service unavailable: API key not configured. Please contact the site administrator.'
     return
@@ -59,7 +66,7 @@ const selectLesson = async (lesson) => {
 
     Ensure all code blocks are cleanly formatted. Keep the style modern and clear.`
 
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${API_KEY}`
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent?key=${API_KEY}`
 
     const response = await fetch(url, {
       method: 'POST',
@@ -81,6 +88,7 @@ const selectLesson = async (lesson) => {
     generatedText = generatedText.replace(/^```html\s*/i, '').replace(/```\s*$/, '').trim()
 
     lessonContent.value = generatedText
+    localStorage.setItem(cacheKey, generatedText)
   } catch (err) {
     console.error(err)
     errorMessage.value = err.message || 'An error occurred while generating the lesson.'
