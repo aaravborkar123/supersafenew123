@@ -5,17 +5,17 @@ import { recordQuizAttempt, isAdmin } from '../data/db'
 
 const props = defineProps({
   username: String,
-  lesson: Object,          // current lesson object { id, name }
-  onGoBack: Function,      // go back to lesson view
-  onNextLesson: Function,  // go to next lesson (if unlocked)
-  onRetake: Function,      // retake this quiz
-  onQuizCompleted: Function // callback with (lessonId, score)
+  lesson: Object,           // current lesson object { id, name }
+  onGoBack: Function,       // go back to lesson view
+  onNextLesson: Function,   // go to next lesson (if unlocked)
+  onRetake: Function,       // retake this quiz
+  onQuizCompleted: Function // callback with (lessonId, score, updatedUser)
 })
 
 const API_KEY = import.meta.env.VITE_GEMINI_API_KEY
 
 // ─── State ────────────────────────────────────────────────────────────────────
-const phase = ref('loading')  // loading | quiz | results | review
+const phase = ref('loading')  // loading | quiz | results
 const questions = ref([])     // 10 selected questions shown to user
 const answers = ref({})       // { [qIndex]: selectedOptionIndex }
 const score = ref(0)
@@ -34,33 +34,54 @@ const lessonPassed = computed(() => isAdmin(props.username) || score.value >= 7)
 const isLastLesson = computed(() => !nextLesson.value)
 
 // ─── Quiz Generation ──────────────────────────────────────────────────────────
+// Cache key for the split { setA, setB } object
 const QUIZ_CACHE_KEY = (id) => `secure_coder_quiz_${id}`
+// Tracks which set (0 = Set A, 1 = Set B) to show on the NEXT mount, per user+lesson
+const TURN_KEY = (id) => `secure_coder_quiz_turn_${props.username}_${id}`
 
-const selectQuestions = (all20) => {
-  // Must pick: 6 MCQ, 2 T/F, 2 code-fault
-  const mcq   = all20.filter(q => q.type === 'mcq')
-  const tf    = all20.filter(q => q.type === 'tf')
-  const code  = all20.filter(q => q.type === 'code')
+const shuffle = (arr) => [...arr].sort(() => Math.random() - 0.5)
 
-  const shuffle = (arr) => [...arr].sort(() => Math.random() - 0.5)
+/**
+ * Split all 20 questions into two balanced, fixed sets of 10:
+ *   Set A: 6 MCQ + 2 T/F + 2 code  (questions 0–9 after shuffling by type)
+ *   Set B: 6 MCQ + 2 T/F + 2 code  (questions 10–19 after shuffling by type)
+ * Each set is then internally shuffled so question order differs every generation.
+ * Sets are stored in cache so the split never changes between attempts.
+ */
+const buildSets = (all20) => {
+  const mcq  = shuffle(all20.filter(q => q.type === 'mcq'))   // 12 items
+  const tf   = shuffle(all20.filter(q => q.type === 'tf'))    // 4 items
+  const code = shuffle(all20.filter(q => q.type === 'code'))  // 4 items
 
-  const picked = [
-    ...shuffle(mcq).slice(0, 6),
-    ...shuffle(tf).slice(0, 2),
-    ...shuffle(code).slice(0, 2)
-  ]
-  return shuffle(picked)
+  const setA = shuffle([...mcq.slice(0, 6),  ...tf.slice(0, 2),  ...code.slice(0, 2)])
+  const setB = shuffle([...mcq.slice(6, 12), ...tf.slice(2, 4),  ...code.slice(2, 4)])
+  return { setA, setB }
 }
 
 const generateQuizQuestions = async () => {
-  const cached = localStorage.getItem(QUIZ_CACHE_KEY(currentLesson.value.id))
+  const lessonId = currentLesson.value.id
+
+  // ── Load from cache if available ───────────────────────────────────────────
+  const cached = localStorage.getItem(QUIZ_CACHE_KEY(lessonId))
   if (cached) {
     try {
-      const all20 = JSON.parse(cached)
-      questions.value = selectQuestions(all20)
+      const parsed = JSON.parse(cached)
+
+      // Migrate old format (plain array of 20) → new { setA, setB } format
+      let sets
+      if (Array.isArray(parsed)) {
+        sets = buildSets(parsed)
+        localStorage.setItem(QUIZ_CACHE_KEY(lessonId), JSON.stringify(sets))
+      } else {
+        sets = parsed
+      }
+
+      // Read which set to show this attempt (0 = A, 1 = B), alternates each mount
+      const turn = parseInt(localStorage.getItem(TURN_KEY(lessonId)) || '0', 10)
+      questions.value = turn === 0 ? sets.setA : sets.setB
       phase.value = 'quiz'
       return
-    } catch { /* fall through to regenerate */ }
+    } catch { /* fall through to re-generate */ }
   }
 
   if (!API_KEY) {
@@ -69,6 +90,7 @@ const generateQuizQuestions = async () => {
     return
   }
 
+  // ── Generate fresh questions from Gemini ───────────────────────────────────
   const loadingPhrases = [
     'Generating quiz questions...',
     'Crafting security challenges...',
@@ -122,7 +144,7 @@ CRITICAL:
     const data = await response.json()
     let raw = data.candidates?.[0]?.content?.parts?.[0]?.text || ''
 
-    // Strip markdown fences if present
+    // Strip markdown fences Gemini may add despite instructions
     raw = raw.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```\s*$/i, '').trim()
 
     const all20 = JSON.parse(raw)
@@ -130,8 +152,12 @@ CRITICAL:
       throw new Error('Quiz generation returned an unexpected format.')
     }
 
-    localStorage.setItem(QUIZ_CACHE_KEY(currentLesson.value.id), JSON.stringify(all20))
-    questions.value = selectQuestions(all20)
+    const sets = buildSets(all20)
+    localStorage.setItem(QUIZ_CACHE_KEY(lessonId), JSON.stringify(sets))
+
+    // First attempt uses Set A (turn = 0)
+    localStorage.setItem(TURN_KEY(lessonId), '0')
+    questions.value = sets.setA
     phase.value = 'quiz'
   } catch (err) {
     console.error(err)
@@ -152,15 +178,22 @@ const submitQuiz = () => {
   })
   score.value = correct
 
-  const user = recordQuizAttempt(props.username, currentLesson.value.id, correct)
-  props.onQuizCompleted?.(currentLesson.value.id, correct, user)
+  const lessonId = currentLesson.value.id
+
+  // Advance the turn so the NEXT attempt uses the other set
+  const currentTurn = parseInt(localStorage.getItem(TURN_KEY(lessonId)) || '0', 10)
+  localStorage.setItem(TURN_KEY(lessonId), currentTurn === 0 ? '1' : '0')
+
+  const user = recordQuizAttempt(props.username, lessonId, correct)
+  props.onQuizCompleted?.(lessonId, correct, user)
   phase.value = 'results'
 }
 
 const forceExit = () => {
   score.value = 0
-  recordQuizAttempt(props.username, currentLesson.value.id, 0)
-  props.onQuizCompleted?.(currentLesson.value.id, 0)
+  const lessonId = currentLesson.value.id
+  recordQuizAttempt(props.username, lessonId, 0)
+  props.onQuizCompleted?.(lessonId, 0)
   props.onGoBack?.()
 }
 
@@ -261,7 +294,7 @@ const allAnswered = computed(() =>
     </div>
 
     <!-- ─── Results ────────────────────────────────── -->
-    <div v-else-if="phase === 'results' || phase === 'review'" class="results-panel">
+    <div v-else-if="phase === 'results'" class="results-panel">
       <!-- Score Banner -->
       <div class="score-banner" :class="lessonPassed ? 'passed' : 'failed'">
         <div class="score-circle">
@@ -273,16 +306,14 @@ const allAnswered = computed(() =>
           <p class="score-sub">
             {{ lessonPassed
               ? 'Great work! The next lesson is now unlocked.'
-              : 'You need 7/10 or higher to unlock the next lesson. Retake when you\'re ready!' }}
+              : "You need 7/10 or higher to unlock the next lesson. Retake when you're ready!" }}
           </p>
         </div>
       </div>
 
-      <!-- Question Review -->
+      <!-- Question Breakdown -->
       <div class="review-section">
-        <h3 class="review-title">
-          {{ phase === 'review' ? 'Full Quiz Review' : 'Question Breakdown' }}
-        </h3>
+        <h3 class="review-title">Question Breakdown</h3>
         <div
           v-for="(q, idx) in questions"
           :key="idx"
@@ -541,12 +572,8 @@ const allAnswered = computed(() =>
   margin: 0;
   line-height: 1.6;
   white-space: pre;
-  counter-reset: line;
 }
-
-.code-snippet code {
-  color: hsl(190, 90%, 75%);
-}
+.code-snippet code { color: hsl(190, 90%, 75%); }
 
 .options-list {
   display: flex;
@@ -607,9 +634,7 @@ const allAnswered = computed(() =>
   font-size: 0.85rem;
   color: var(--text-muted);
 }
-.submit-btn {
-  min-width: 160px;
-}
+.submit-btn { min-width: 160px; }
 
 /* Results */
 .results-panel {
@@ -685,7 +710,7 @@ const allAnswered = computed(() =>
   border: 1px solid;
   margin-bottom: 1rem;
 }
-.review-card.correct  { border-color: hsla(152, 80%, 50%, 0.3); }
+.review-card.correct   { border-color: hsla(152, 80%, 50%, 0.3); }
 .review-card.incorrect { border-color: hsla(0, 80%, 50%, 0.3); }
 
 .review-q-header {
@@ -693,11 +718,8 @@ const allAnswered = computed(() =>
   align-items: center;
   gap: 0.75rem;
 }
-.q-result-icon {
-  font-size: 1.1rem;
-  font-weight: 800;
-}
-.review-card.correct  .q-result-icon { color: var(--primary-glow); }
+.q-result-icon { font-size: 1.1rem; font-weight: 800; }
+.review-card.correct   .q-result-icon { color: var(--primary-glow); }
 .review-card.incorrect .q-result-icon { color: hsl(0, 80%, 70%); }
 
 .review-options { pointer-events: none; }
