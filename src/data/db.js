@@ -21,7 +21,7 @@ export function createUser(username, password) {
   const key = username.toLowerCase()
 
   if (users[key]) {
-    throw new Error('Username already exists.')
+    throw new Error('This username is already taken. Please choose another one.')
   }
 
   const newUser = {
