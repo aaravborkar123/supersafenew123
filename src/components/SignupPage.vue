@@ -1,5 +1,6 @@
 <script setup>
 import { ref } from 'vue'
+import { createUser } from '../data/db'
 
 const props = defineProps({
   onSignup: Function,
@@ -13,27 +14,50 @@ const error = ref('')
 
 const handleSignup = () => {
   error.value = ''
-  if (!username.value.trim()) {
+  const trimmedUser = username.value.trim()
+
+  if (!trimmedUser) {
     error.value = 'Please enter a username.'
     return
   }
-  if (username.value.trim().length < 3) {
+  if (trimmedUser.length < 3) {
     error.value = 'Username must be at least 3 characters.'
     return
   }
-  if (!password.value.trim()) {
+  if (!password.value) {
     error.value = 'Please enter a password.'
     return
   }
-  if (password.value.length < 4) {
-    error.value = 'Password must be at least 4 characters.'
+
+  // Password constraints validation
+  const uppercaseMatch = password.value.match(/[A-Z]/g)
+  const digitMatch = password.value.match(/[0-9]/g)
+  const specialMatch = password.value.match(/[^A-Za-z0-9]/g)
+
+  if (!uppercaseMatch || uppercaseMatch.length < 1) {
+    error.value = 'Password must contain at least 1 capital letter.'
     return
   }
+  if (!digitMatch || digitMatch.length < 3) {
+    error.value = 'Password must contain at least 3 numbers.'
+    return
+  }
+  if (!specialMatch || specialMatch.length < 1) {
+    error.value = 'Password must contain at least 1 special symbol.'
+    return
+  }
+
   if (password.value !== confirmPassword.value) {
     error.value = 'Passwords do not match.'
     return
   }
-  props.onSignup(username.value.trim())
+
+  try {
+    createUser(trimmedUser, password.value)
+    props.onSignup(trimmedUser)
+  } catch (err) {
+    error.value = err.message
+  }
 }
 </script>
 

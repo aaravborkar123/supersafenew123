@@ -2,9 +2,10 @@
 import { ref } from 'vue'
 import { LESSONS } from '../data/lessons'
 
-defineProps({
+const props = defineProps({
   username: String,
-  onGoBack: Function
+  onGoBack: Function,
+  onLessonCompleted: Function
 })
 
 // API key is read from the .env file (VITE_GEMINI_API_KEY).
@@ -26,6 +27,7 @@ const selectLesson = async (lesson) => {
   const cachedContent = localStorage.getItem(cacheKey)
   if (cachedContent) {
     lessonContent.value = cachedContent
+    props.onLessonCompleted?.(lesson.id)
     return
   }
 
@@ -89,6 +91,7 @@ const selectLesson = async (lesson) => {
 
     lessonContent.value = generatedText
     localStorage.setItem(cacheKey, generatedText)
+    props.onLessonCompleted?.(lesson.id)
   } catch (err) {
     console.error(err)
     errorMessage.value = err.message || 'An error occurred while generating the lesson.'

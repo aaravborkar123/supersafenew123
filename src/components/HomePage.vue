@@ -46,7 +46,7 @@ const props = defineProps({
             <span class="stat-label">Lessons Completed:</span>
             <span class="stat-value">
               <span class="stat-number">{{ lessonsCompleted }}</span>
-              <span class="stat-total">/ 8</span>
+              <span class="stat-total">/ 7</span>
             </span>
           </div>
           <div class="stat-divider"></div>
@@ -54,8 +54,13 @@ const props = defineProps({
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--secondary-glow); flex-shrink: 0;"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
             <span class="stat-label">Last Quiz Score:</span>
             <span class="stat-value">
-              <span class="stat-number">{{ lastQuizScore }}</span>
-              <span class="stat-total">/ 10</span>
+              <template v-if="lastQuizScore !== null && lastQuizScore !== undefined">
+                <span class="stat-number">{{ lastQuizScore }}</span>
+                <span class="stat-total">/ 10</span>
+              </template>
+              <template v-else>
+                <span class="stat-number" style="font-size: 1rem; font-weight: 600;">No score yet</span>
+              </template>
             </span>
           </div>
         </div>

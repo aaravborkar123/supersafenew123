@@ -1,5 +1,6 @@
 <script setup>
 import { ref } from 'vue'
+import { authenticate } from '../data/db'
 
 const props = defineProps({
   onLogin: Function,
@@ -12,15 +13,23 @@ const error = ref('')
 
 const handleLogin = () => {
   error.value = ''
-  if (!username.value.trim()) {
+  const trimmedUser = username.value.trim()
+
+  if (!trimmedUser) {
     error.value = 'Please enter your username.'
     return
   }
-  if (!password.value.trim()) {
+  if (!password.value) {
     error.value = 'Please enter your password.'
     return
   }
-  props.onLogin(username.value.trim())
+
+  try {
+    authenticate(trimmedUser, password.value)
+    props.onLogin(trimmedUser)
+  } catch (err) {
+    error.value = err.message
+  }
 }
 </script>
 

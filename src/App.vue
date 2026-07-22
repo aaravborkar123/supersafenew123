@@ -5,34 +5,56 @@ import SignupPage from './components/SignupPage.vue'
 import HomePage from './components/HomePage.vue'
 import LearningCenter from './components/LearningCenter.vue'
 
+import { getUser, completeLesson } from './data/db'
+
 // View state: 'landing' | 'login' | 'signup' | 'home' | 'learning'
 const currentView = ref('landing')
 
-// User session state (placeholder — no database)
+// User session state
 const username = ref('')
-const lessonsCompleted = ref(3)
-const lastQuizScore = ref(7)
+const lessonsCompleted = ref(0)
+const lastQuizScore = ref(null)
 
 // Navigation handlers
 const goTo = (view) => { currentView.value = view }
 
+const loadUserStats = (name) => {
+  const user = getUser(name)
+  if (user) {
+    username.value = user.username
+    lessonsCompleted.value = user.lessonsCompleted.length
+    lastQuizScore.value = user.lastQuizScore
+  }
+}
+
 const handleLogin = (name) => {
-  username.value = name
+  loadUserStats(name)
   currentView.value = 'home'
 }
 
 const handleSignup = (name) => {
-  username.value = name
+  loadUserStats(name)
   currentView.value = 'home'
 }
 
 const handleLogout = () => {
   username.value = ''
+  lessonsCompleted.value = 0
+  lastQuizScore.value = null
   currentView.value = 'landing'
 }
 
 const handleGoLearning = () => {
   currentView.value = 'learning'
+}
+
+const handleLessonCompleted = (lessonId) => {
+  if (username.value) {
+    const user = completeLesson(username.value, lessonId)
+    if (user) {
+      lessonsCompleted.value = user.lessonsCompleted.length
+    }
+  }
 }
 </script>
 
@@ -104,6 +126,7 @@ const handleGoLearning = () => {
       <LearningCenter
         :username="username"
         :on-go-back="() => goTo('home')"
+        :on-lesson-completed="handleLessonCompleted"
       />
     </template>
   </div>
