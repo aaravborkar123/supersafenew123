@@ -66,7 +66,7 @@ const selectLesson = async (lesson) => {
 
     Ensure all code blocks are cleanly formatted. Keep the style modern and clear.`
 
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent?key=${API_KEY}`
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-lite-latest:generateContent?key=${API_KEY}`
 
     const response = await fetch(url, {
       method: 'POST',
