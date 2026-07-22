@@ -162,6 +162,12 @@ const clearAll = () => {
       </span>
     </div>
 
+    <!-- Disclaimer Banner -->
+    <div class="checker-disclaimer">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="disclaimer-icon"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+      <span class="disclaimer-text"><strong>Disclaimer:</strong> This AI-powered tool does not catch or mention all potential vulnerabilities. Always manually verify and review your code before deployment.</span>
+    </div>
+
     <!-- Main layout -->
     <div class="checker-layout">
       <!-- LEFT — Code Input -->
@@ -727,5 +733,25 @@ function login(username, password) {
 @media (max-width: 800px) {
   .checker-layout { grid-template-columns: 1fr; }
   .code-input { min-height: 240px; }
+}
+
+.checker-disclaimer {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.65rem 1rem;
+  background: hsla(38, 90%, 55%, 0.08);
+  border: 1px solid hsla(38, 90%, 55%, 0.25);
+  border-radius: 8px;
+  color: hsl(38, 90%, 75%);
+  font-size: 0.82rem;
+  line-height: 1.4;
+}
+.disclaimer-icon {
+  flex-shrink: 0;
+  color: hsl(38, 90%, 65%);
+}
+.disclaimer-text strong {
+  color: hsl(38, 90%, 80%);
 }
 </style>
