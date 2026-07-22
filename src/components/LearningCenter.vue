@@ -1,15 +1,15 @@
 <script setup>
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import { LESSONS } from '../data/lessons'
+import { isLessonUnlocked } from '../data/db'
 
 const props = defineProps({
   username: String,
   onGoBack: Function,
-  onLessonCompleted: Function
+  onLessonCompleted: Function,
+  onStartQuiz: Function       // (lesson) => void  – passed from App.vue
 })
 
-// API key is read from the .env file (VITE_GEMINI_API_KEY).
-// It is never exposed in the UI and never committed to GitHub.
 const API_KEY = import.meta.env.VITE_GEMINI_API_KEY
 
 const selectedLesson = ref(null)
@@ -18,7 +18,12 @@ const isLoading = ref(false)
 const errorMessage = ref('')
 const loadingText = ref('Connecting to Gemini...')
 
+// Determine if a lesson is unlocked for this user
+const lessonUnlocked = (lesson) => isLessonUnlocked(props.username, lesson.id, LESSONS)
+
 const selectLesson = async (lesson) => {
+  if (!lessonUnlocked(lesson)) return  // locked, ignore click
+
   selectedLesson.value = lesson
   errorMessage.value = ''
   lessonContent.value = ''
@@ -87,7 +92,7 @@ const selectLesson = async (lesson) => {
     let generatedText = data.candidates?.[0]?.content?.parts?.[0]?.text || ''
 
     // Strip any markdown code block wrapper Gemini may add despite instructions
-    generatedText = generatedText.replace(/^```html\s*/i, '').replace(/```\s*$/, '').trim()
+    generatedText = generatedText.replace(/^```html\s*/i, '').replace(/```\s*$/i, '').trim()
 
     lessonContent.value = generatedText
     localStorage.setItem(cacheKey, generatedText)
@@ -113,22 +118,26 @@ const selectLesson = async (lesson) => {
       <span class="learning-title">Learning Center</span>
     </div>
 
-    <!-- No API settings bar: key is loaded securely from server env -->
-
     <!-- Layout Grid -->
     <div class="learning-layout">
       <!-- Sidebar Topics -->
       <div class="topics-sidebar">
         <h4 class="sidebar-title">Lesson Topics</h4>
         <div class="topics-list">
-          <button 
-            v-for="lesson in LESSONS" 
+          <button
+            v-for="lesson in LESSONS"
             :key="lesson.id"
             @click="selectLesson(lesson)"
             class="topic-item"
-            :class="{ 'topic-item--active': selectedLesson?.id === lesson.id }"
+            :class="{
+              'topic-item--active': selectedLesson?.id === lesson.id,
+              'topic-item--locked': !lessonUnlocked(lesson)
+            }"
+            :disabled="!lessonUnlocked(lesson)"
           >
-            <span class="topic-bullet"></span>
+            <span class="topic-bullet">
+              <svg v-if="!lessonUnlocked(lesson)" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+            </span>
             <span class="topic-name">{{ lesson.name }}</span>
           </button>
         </div>
@@ -149,7 +158,24 @@ const selectLesson = async (lesson) => {
         </div>
 
         <!-- Active Lesson Content -->
-        <div v-else-if="lessonContent" class="lesson-article" v-html="lessonContent"></div>
+        <template v-else-if="lessonContent">
+          <div class="lesson-article" v-html="lessonContent"></div>
+
+          <!-- Take Quiz Button -->
+          <div class="quiz-cta">
+            <div class="quiz-cta-info">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--secondary-glow);"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+              <div>
+                <p class="cta-title">Ready to test your knowledge?</p>
+                <p class="cta-sub">Complete the quiz to unlock the next lesson. You need 7/10 or higher to pass.</p>
+              </div>
+            </div>
+            <button class="btn-take-quiz" @click="onStartQuiz(selectedLesson)">
+              Take Quiz
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
+            </button>
+          </div>
+        </template>
 
         <!-- Initial/Welcome View -->
         <div v-else class="welcome-view">
@@ -194,7 +220,6 @@ const selectLesson = async (lesson) => {
   font-weight: 500;
   transition: all 0.2s;
 }
-
 .back-btn:hover {
   background: var(--card-border);
   color: var(--text-heading);
@@ -205,7 +230,6 @@ const selectLesson = async (lesson) => {
   font-weight: 800;
   color: var(--text-heading);
 }
-
 
 /* Layout Grid */
 .learning-layout {
@@ -257,14 +281,15 @@ const selectLesson = async (lesson) => {
 }
 
 .topic-bullet {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--text-muted);
-  transition: all 0.25s;
+  width: 16px;
+  height: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
 }
 
-.topic-item:hover {
+.topic-item:not(.topic-item--locked):hover {
   background: hsla(224, 71%, 12%, 0.4);
   color: var(--text-heading);
 }
@@ -274,11 +299,13 @@ const selectLesson = async (lesson) => {
   border-color: hsla(152, 80%, 50%, 0.25);
   color: var(--primary-glow);
 }
+.topic-item--active .topic-bullet svg { color: var(--primary-glow); }
 
-.topic-item--active .topic-bullet {
-  background: var(--primary-glow);
-  box-shadow: 0 0 8px var(--primary-glow);
+.topic-item--locked {
+  opacity: 0.45;
+  cursor: not-allowed;
 }
+.topic-item--locked .topic-bullet svg { color: var(--text-muted); }
 
 /* Content Area */
 .content-display {
@@ -303,14 +330,12 @@ const selectLesson = async (lesson) => {
   text-align: center;
   color: var(--text-muted);
 }
-
 .welcome-view h3 {
   font-size: 1.35rem;
   font-weight: 700;
   color: var(--text-heading);
   margin-bottom: 0.5rem;
 }
-
 .welcome-view p {
   font-size: 0.95rem;
   max-width: 400px;
@@ -325,7 +350,6 @@ const selectLesson = async (lesson) => {
   justify-content: center;
   gap: 1.25rem;
 }
-
 .spinner {
   width: 40px;
   height: 40px;
@@ -334,17 +358,13 @@ const selectLesson = async (lesson) => {
   border-radius: 50%;
   animation: spin 1s linear infinite;
 }
-
 .loading-message {
   font-size: 0.9rem;
   color: var(--primary-glow);
   font-weight: 500;
   letter-spacing: 0.02em;
 }
-
-@keyframes spin {
-  to { transform: rotate(360deg); }
-}
+@keyframes spin { to { transform: rotate(360deg); } }
 
 /* Error State */
 .error-state {
@@ -358,7 +378,6 @@ const selectLesson = async (lesson) => {
   max-width: 450px;
   margin: 0 auto;
 }
-
 .error-message {
   font-size: 0.95rem;
   color: hsl(0, 80%, 75%);
@@ -371,7 +390,6 @@ const selectLesson = async (lesson) => {
   font-size: 1rem;
   animation: cardEntrance 0.3s ease-out;
 }
-
 .lesson-article :deep(h3) {
   font-size: 1.25rem;
   font-weight: 700;
@@ -381,24 +399,10 @@ const selectLesson = async (lesson) => {
   border-left: 3.5px solid var(--primary-glow);
   padding-left: 0.75rem;
 }
-
-.lesson-article :deep(h3:first-of-type) {
-  margin-top: 0;
-}
-
-.lesson-article :deep(p) {
-  margin-bottom: 1.25rem;
-}
-
-.lesson-article :deep(ul), .lesson-article :deep(ol) {
-  margin-bottom: 1.25rem;
-  padding-left: 1.5rem;
-}
-
-.lesson-article :deep(li) {
-  margin-bottom: 0.5rem;
-}
-
+.lesson-article :deep(h3:first-of-type) { margin-top: 0; }
+.lesson-article :deep(p)  { margin-bottom: 1.25rem; }
+.lesson-article :deep(ul), .lesson-article :deep(ol) { margin-bottom: 1.25rem; padding-left: 1.5rem; }
+.lesson-article :deep(li) { margin-bottom: 0.5rem; }
 .lesson-article :deep(pre) {
   background: hsla(224, 71%, 3%, 0.85);
   border: 1px solid var(--card-border);
@@ -407,20 +411,62 @@ const selectLesson = async (lesson) => {
   overflow-x: auto;
   margin-bottom: 1.5rem;
 }
-
 .lesson-article :deep(code) {
   font-family: var(--font-mono);
   font-size: 0.85rem;
   color: hsl(190, 90%, 75%);
 }
+.lesson-article :deep(pre code) { color: var(--text-main); }
 
-.lesson-article :deep(pre code) {
-  color: var(--text-main);
+/* Take Quiz CTA */
+.quiz-cta {
+  margin-top: 2.5rem;
+  padding: 1.5rem;
+  border-radius: 14px;
+  background: hsla(258, 80%, 60%, 0.07);
+  border: 1px solid hsla(258, 80%, 60%, 0.25);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.5rem;
+  flex-wrap: wrap;
 }
+.quiz-cta-info {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.85rem;
+}
+.cta-title {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text-heading);
+  margin: 0 0 0.2rem 0;
+}
+.cta-sub {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  margin: 0;
+}
+.btn-take-quiz {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.7rem 1.4rem;
+  border-radius: 10px;
+  background: var(--secondary-glow);
+  color: hsl(224, 71%, 4%);
+  font-family: var(--font-sans);
+  font-weight: 700;
+  font-size: 0.95rem;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.btn-take-quiz:hover { filter: brightness(1.12); transform: translateY(-1px); }
 
 @media (max-width: 800px) {
-  .learning-layout {
-    grid-template-columns: 1fr;
-  }
+  .learning-layout { grid-template-columns: 1fr; }
 }
 </style>

@@ -4,16 +4,21 @@ import LoginPage from './components/LoginPage.vue'
 import SignupPage from './components/SignupPage.vue'
 import HomePage from './components/HomePage.vue'
 import LearningCenter from './components/LearningCenter.vue'
+import QuizView from './components/QuizView.vue'
+import { LESSONS } from './data/lessons'
 
 import { getUser, completeLesson } from './data/db'
 
-// View state: 'landing' | 'login' | 'signup' | 'home' | 'learning'
+// View state: 'landing' | 'login' | 'signup' | 'home' | 'learning' | 'quiz'
 const currentView = ref('landing')
 
 // User session state
 const username = ref('')
 const lessonsCompleted = ref(0)
 const lastQuizScore = ref(null)
+
+// Currently active quiz lesson
+const activeQuizLesson = ref(null)
 
 // Navigation handlers
 const goTo = (view) => { currentView.value = view }
@@ -22,7 +27,7 @@ const loadUserStats = (name) => {
   const user = getUser(name)
   if (user) {
     username.value = user.username
-    lessonsCompleted.value = user.lessonsCompleted.length
+    lessonsCompleted.value = (user.lessonsPassed || user.lessonsCompleted || []).length
     lastQuizScore.value = user.lastQuizScore
   }
 }
@@ -41,6 +46,7 @@ const handleLogout = () => {
   username.value = ''
   lessonsCompleted.value = 0
   lastQuizScore.value = null
+  activeQuizLesson.value = null
   currentView.value = 'landing'
 }
 
@@ -52,8 +58,41 @@ const handleLessonCompleted = (lessonId) => {
   if (username.value) {
     const user = completeLesson(username.value, lessonId)
     if (user) {
-      lessonsCompleted.value = user.lessonsCompleted.length
+      lessonsCompleted.value = (user.lessonsPassed || user.lessonsCompleted || []).length
     }
+  }
+}
+
+// ─── Quiz handlers ──────────────────────────────────────────────────────────
+const handleStartQuiz = (lesson) => {
+  activeQuizLesson.value = lesson
+  currentView.value = 'quiz'
+}
+
+const handleQuizCompleted = (lessonId, score, updatedUser) => {
+  if (updatedUser) {
+    lastQuizScore.value = updatedUser.lastQuizScore
+    lessonsCompleted.value = (updatedUser.lessonsPassed || updatedUser.lessonsCompleted || []).length
+  }
+}
+
+const handleQuizRetake = () => {
+  // Re-mount QuizView for the same lesson by briefly switching away and back
+  currentView.value = 'learning'
+  setTimeout(() => {
+    currentView.value = 'quiz'
+  }, 50)
+}
+
+const handleNextLesson = () => {
+  if (!activeQuizLesson.value) return
+  const idx = LESSONS.findIndex(l => l.id === activeQuizLesson.value.id)
+  if (idx >= 0 && idx < LESSONS.length - 1) {
+    const next = LESSONS[idx + 1]
+    activeQuizLesson.value = next
+    currentView.value = 'quiz'
+  } else {
+    currentView.value = 'home'
   }
 }
 </script>
@@ -127,6 +166,19 @@ const handleLessonCompleted = (lessonId) => {
         :username="username"
         :on-go-back="() => goTo('home')"
         :on-lesson-completed="handleLessonCompleted"
+        :on-start-quiz="handleStartQuiz"
+      />
+    </template>
+
+    <!-- ─── Quiz View ─── -->
+    <template v-else-if="currentView === 'quiz' && activeQuizLesson">
+      <QuizView
+        :username="username"
+        :lesson="activeQuizLesson"
+        :on-go-back="() => goTo('learning')"
+        :on-next-lesson="handleNextLesson"
+        :on-retake="handleQuizRetake"
+        :on-quiz-completed="handleQuizCompleted"
       />
     </template>
   </div>

@@ -27,7 +27,9 @@ export function createUser(username, password) {
   const newUser = {
     username: username, // Preserve original casing for display
     password: password,
-    lessonsCompleted: [],
+    lessonsCompleted: [],   // lessonIds where the lesson content was viewed
+    lessonsPassed: [],      // lessonIds where quiz score >= 7/10
+    quizHistory: {},        // { [lessonId]: { bestScore, attempts: [{ score, date }] } }
     lastQuizScore: null
   }
 
@@ -41,6 +43,9 @@ export function authenticate(username, password) {
   if (!user || user.password !== password) {
     throw new Error('Invalid username or password.')
   }
+  // Migrate legacy users that don't have lessonsPassed / quizHistory yet
+  if (!user.lessonsPassed) user.lessonsPassed = []
+  if (!user.quizHistory) user.quizHistory = {}
   return user
 }
 
@@ -57,6 +62,52 @@ export function completeLesson(username, lessonId) {
     saveAllUsers(users)
   }
   return user
+}
+
+export function recordQuizAttempt(username, lessonId, score) {
+  const users = getAllUsers()
+  const key = username.toLowerCase()
+  const user = users[key]
+
+  if (!user) return null
+
+  // Initialise quiz history for this lesson if not present
+  if (!user.quizHistory) user.quizHistory = {}
+  if (!user.lessonsPassed) user.lessonsPassed = []
+
+  if (!user.quizHistory[lessonId]) {
+    user.quizHistory[lessonId] = { bestScore: 0, attempts: [] }
+  }
+
+  const history = user.quizHistory[lessonId]
+  history.attempts.push({ score, date: new Date().toISOString() })
+  if (score > history.bestScore) history.bestScore = score
+
+  // Update lastQuizScore
+  user.lastQuizScore = score
+
+  // Mark lesson as passed if score >= 7
+  if (score >= 7 && !user.lessonsPassed.includes(lessonId)) {
+    user.lessonsPassed.push(lessonId)
+  }
+
+  users[key] = user
+  saveAllUsers(users)
+  return user
+}
+
+export function isLessonUnlocked(username, lessonId, allLessons) {
+  // The first lesson is always unlocked
+  if (lessonId === allLessons[0].id) return true
+
+  const user = getUser(username)
+  if (!user || !user.lessonsPassed) return false
+
+  // A lesson is unlocked if the previous lesson has been passed
+  const idx = allLessons.findIndex(l => l.id === lessonId)
+  if (idx <= 0) return true
+  const prevLesson = allLessons[idx - 1]
+  return user.lessonsPassed.includes(prevLesson.id)
 }
 
 export function updateQuizScore(username, score) {
