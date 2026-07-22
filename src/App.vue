@@ -5,6 +5,7 @@ import SignupPage from './components/SignupPage.vue'
 import HomePage from './components/HomePage.vue'
 import LearningCenter from './components/LearningCenter.vue'
 import QuizView from './components/QuizView.vue'
+import CodeChecker from './components/CodeChecker.vue'
 import { LESSONS } from './data/lessons'
 
 import { getUser, completeLesson, ensureAdminAccounts } from './data/db'
@@ -12,7 +13,7 @@ import { getUser, completeLesson, ensureAdminAccounts } from './data/db'
 // Ensure the admin account exists in localStorage on every app load
 onMounted(() => ensureAdminAccounts())
 
-// View state: 'landing' | 'login' | 'signup' | 'home' | 'learning' | 'quiz'
+// View state: 'landing' | 'login' | 'signup' | 'home' | 'learning' | 'quiz' | 'checker'
 const currentView = ref('landing')
 
 // User session state
@@ -22,6 +23,9 @@ const lastQuizScore = ref(null)
 
 // Currently active quiz lesson
 const activeQuizLesson = ref(null)
+
+// For cross-linking from Code Checker to Learning Center
+const checkerRedirectLesson = ref(null)
 
 // Navigation handlers
 const goTo = (view) => { currentView.value = view }
@@ -54,6 +58,18 @@ const handleLogout = () => {
 }
 
 const handleGoLearning = () => {
+  currentView.value = 'learning'
+}
+
+const handleGoChecker = () => {
+  currentView.value = 'checker'
+}
+
+const handleGoLesson = (lesson) => {
+  // Save the target lesson, go to learning view, and then we will auto-select it if possible
+  // By passing it down, or select it dynamically.
+  // To keep it simple, we will set a reactive reference checkerRedirectLesson
+  checkerRedirectLesson.value = lesson
   currentView.value = 'learning'
 }
 
@@ -160,6 +176,7 @@ const handleNextLesson = () => {
         :last-quiz-score="lastQuizScore"
         :on-logout="handleLogout"
         :on-go-learning="handleGoLearning"
+        :on-go-checker="handleGoChecker"
       />
     </template>
 
@@ -170,6 +187,8 @@ const handleNextLesson = () => {
         :on-go-back="() => goTo('home')"
         :on-lesson-completed="handleLessonCompleted"
         :on-start-quiz="handleStartQuiz"
+        :redirect-lesson="checkerRedirectLesson"
+        @clear-redirect="checkerRedirectLesson = null"
       />
     </template>
 
@@ -182,6 +201,14 @@ const handleNextLesson = () => {
         :on-next-lesson="handleNextLesson"
         :on-retake="handleQuizRetake"
         :on-quiz-completed="handleQuizCompleted"
+      />
+    </template>
+
+    <!-- ─── Code Checker ─── -->
+    <template v-else-if="currentView === 'checker'">
+      <CodeChecker
+        :on-go-back="() => goTo('home')"
+        :on-go-lesson="handleGoLesson"
       />
     </template>
   </div>

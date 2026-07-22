@@ -553,6 +553,19 @@ body::after {
   transform: translateY(-2px);
 }
 
+.feature-btn--purple .feature-icon {
+  background: hsla(258, 80%, 60%, 0.15);
+  border: 1.5px solid hsla(258, 80%, 60%, 0.35);
+  color: hsl(258, 80%, 75%);
+}
+
+.feature-btn--purple:hover .feature-icon {
+  background: hsla(258, 80%, 60%, 0.25);
+  border-color: hsl(258, 80%, 70%);
+  box-shadow: 0 0 18px hsla(258, 80%, 60%, 0.3);
+  transform: translateY(-2px);
+}
+
 .feature-label {
   font-size: 1.05rem;
   font-weight: 700;

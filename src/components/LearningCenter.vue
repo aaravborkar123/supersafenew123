@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { LESSONS } from '../data/lessons'
 import { isLessonUnlocked } from '../data/db'
 
@@ -7,8 +7,11 @@ const props = defineProps({
   username: String,
   onGoBack: Function,
   onLessonCompleted: Function,
-  onStartQuiz: Function       // (lesson) => void  – passed from App.vue
+  onStartQuiz: Function,       // (lesson) => void  – passed from App.vue
+  redirectLesson: Object       // lesson object to auto-select if matching
 })
+
+const emit = defineEmits(['clear-redirect'])
 
 const API_KEY = import.meta.env.VITE_GEMINI_API_KEY
 
@@ -105,6 +108,16 @@ const selectLesson = async (lesson) => {
     isLoading.value = false
   }
 }
+
+onMounted(() => {
+  if (props.redirectLesson) {
+    const lesson = LESSONS.find(l => l.id === props.redirectLesson.id)
+    if (lesson && lessonUnlocked(lesson)) {
+      selectLesson(lesson)
+    }
+    emit('clear-redirect')
+  }
+})
 </script>
 
 <template>
