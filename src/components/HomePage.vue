@@ -1,4 +1,6 @@
 <script setup>
+import { ref, onMounted } from 'vue'
+
 const props = defineProps({
   username: String,
   lessonsCompleted: {
@@ -13,11 +15,35 @@ const props = defineProps({
   onGoLearning: Function,
   onGoChecker: Function
 })
+
+const isLightMode = ref(false)
+
+onMounted(() => {
+  const savedTheme = localStorage.getItem('secure_coder_theme')
+  if (savedTheme === 'light') {
+    isLightMode.value = true
+    document.body.classList.add('light-theme')
+  } else {
+    isLightMode.value = false
+    document.body.classList.remove('light-theme')
+  }
+})
+
+const toggleTheme = () => {
+  isLightMode.value = !isLightMode.value
+  if (isLightMode.value) {
+    document.body.classList.add('light-theme')
+    localStorage.setItem('secure_coder_theme', 'light')
+  } else {
+    document.body.classList.remove('light-theme')
+    localStorage.setItem('secure_coder_theme', 'dark')
+  }
+}
 </script>
 
 <template>
   <div class="home-card">
-    <!-- Top Bar with Logout -->
+    <!-- Top Bar with Theme Toggle & Logout -->
     <div class="home-topbar">
       <div class="home-brand">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--primary-glow);">
@@ -25,10 +51,30 @@ const props = defineProps({
         </svg>
         <span class="home-brand-name">Secure Coder</span>
       </div>
-      <button @click="onLogout" class="logout-btn">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
-        Log Out
-      </button>
+      <div style="display: flex; align-items: center; gap: 0.75rem;">
+        <button @click="toggleTheme" class="theme-toggle-btn" :title="isLightMode ? 'Switch to Dark Mode' : 'Switch to Light Mode'">
+          <!-- Sun Icon (shown in dark mode to switch to light) -->
+          <svg v-if="!isLightMode" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="5"></circle>
+            <line x1="12" y1="1" x2="12" y2="3"></line>
+            <line x1="12" y1="21" x2="12" y2="23"></line>
+            <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+            <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+            <line x1="1" y1="12" x2="3" y2="12"></line>
+            <line x1="21" y1="12" x2="23" y2="12"></line>
+            <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+            <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+          </svg>
+          <!-- Moon Icon (shown in light mode to switch to dark) -->
+          <svg v-else width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+          </svg>
+        </button>
+        <button @click="onLogout" class="logout-btn">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+          Log Out
+        </button>
+      </div>
     </div>
 
     <!-- Welcome Greeting -->

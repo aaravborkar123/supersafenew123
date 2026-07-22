@@ -22,6 +22,7 @@
   --shadow-glow-cyan: 0 0 30px hsla(190, 90%, 50%, 0.15);
   --card-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.7);
   --transition: 0.25s cubic-bezier(0.25, 0.8, 0.25, 1);
+  --progress-bg: hsla(224, 71%, 6%, 0.7);
 }
 
 * {
@@ -355,7 +356,7 @@ body::after {
 ─────────────────────────────────────────────── */
 .home-card {
   padding: 0;
-  max-width: 680px;
+  max-width: 820px;
   width: 100%;
   overflow: hidden;
 }
@@ -427,7 +428,7 @@ body::after {
 
 /* Progress card */
 .progress-card {
-  background: hsla(224, 71%, 6%, 0.7);
+  background: var(--progress-bg);
   border: 1px solid var(--card-border);
   border-radius: 16px;
   padding: 1.25rem 1.5rem;
@@ -601,4 +602,36 @@ body::after {
   .home-topbar { padding: 1rem 1.25rem; }
   .welcome-section { padding: 1.5rem 1.25rem 1rem; }
   .progress-card { padding: 1rem 1.25rem; }
+}
+
+/* Theme Toggle Button */
+.theme-toggle-btn {
+  background: transparent;
+  border: 1.5px solid var(--card-border);
+  color: var(--text-muted);
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--transition);
+}
+
+.theme-toggle-btn:hover {
+  border-color: var(--primary-glow);
+  color: var(--primary-glow);
+}
+
+/* Light Theme Override */
+body.light-theme {
+  --bg-color: hsl(220, 30%, 96%);
+  --card-bg: hsla(220, 20%, 98%, 0.85);
+  --card-border: hsla(220, 20%, 82%, 0.6);
+  --text-main: hsl(224, 25%, 25%);
+  --text-muted: hsl(220, 15%, 45%);
+  --text-heading: hsl(224, 30%, 12%);
+  --progress-bg: hsla(220, 20%, 90%, 0.5);
+  --card-shadow: 0 15px 35px rgba(0, 0, 0, 0.06);
 }
